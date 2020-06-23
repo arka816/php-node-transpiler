@@ -3,6 +3,7 @@
 import sys
 from utility import *
 from classes import *
+from phplexer import tokenizer
 
 keywords = ["do", "while", "for", "if", "elseif", "else", "try", "catch", "throw", "new", "echo", "function", "class"]
 comparisonOp = ["===", "!==", "==", "!=", ">=", "<=", ">", "<", "<>", "<=>"]
@@ -67,7 +68,7 @@ def parseCondition(statement, parentNode):
         parentNode.operandRight = parseCondition(operandRight, rightOperandNode)
         
     else:
-        ### THIS CAN BE EITHER A SINGLE OR COMPOUND LOGICAL STATEMENT
+        ### THIS CAN BE EITHER A SINGLE OR COMPOUND LOGICAL STATEMENT OR A BOOOLEAN
         ### FIND THE FIRST LOGICAL OPERATOR...FUCK BRACKETS
         ### IF NO LOGICAL OPERATOR IS FOUND THEN SINGLE STATEMENT
         opDict = dict()
@@ -76,15 +77,20 @@ def parseCondition(statement, parentNode):
             
         minIndex = min(opDict.values())
         if minIndex == len(statement):
-            ### SINGLE LOGIC STATEMENT
+            i = -1
             for comp in comparisonOp:
                 i = findComparisonOperator(comp, statement)
                 if i >= 0:
+                    ### SINGLE LOGIC STATEMENT
                     parentNode.operator = comp
                     parentNode.operandLeft = statement[0 : i].strip()
                     parentNode.operandRight = statement[i + len(comp) : len(statement)].strip()
                     print(comp, parentNode.operandLeft, parentNode.operandRight)
                     break
+            if i == -1:
+                ### BOOLEAN VALUE
+                print("boolean", statement)
+                parentNode.boolean = statement.strip()
         else:
             operator = [key for key in opDict if opDict[key] == minIndex]   
             operator = operator[0].strip()
@@ -107,20 +113,24 @@ def parseCondition(statement, parentNode):
 
 
 
-def buildAST(segment):
+def buildAST(segment, parent):
+    ### BUILDS AN ABSTRACT SYNTAX TREE NODE FOR A TOKEN
     l=len(segment)
     keyword = classifySegment(segment)
     if keyword == "identifier":
         ### THE SEGMENT IS AN ASSIGNMENT STATEMENT
+        ### OR ANY UNARY OPERATION
+        ### OR A METHOD CALL
         operatorNode = OperatorNode()
         identifierNode = IdentifierNode()
         i = segment.find("=")
-        operatorNode.operator = "="
-        identifierNode.name = segment[0: i].strip()
-        operatorNode.operandLeft = identifierNode
-        operatorNode.operandRight = evaluate(segment[i+1: l].strip())
-        operatorNode.parent = root
-        root.pushChild(operatorNode)
+        if i != -1:
+            operatorNode.operator = "="
+            identifierNode.name = segment[0: i].strip()
+            operatorNode.operandLeft = identifierNode
+            operatorNode.operandRight = evaluate(segment[i+1: l].strip())
+            operatorNode.parent = parent
+            parent.pushChild(operatorNode)
         
     elif keyword == "while":
         whileNode = WhileNode() ### NODE FOR THE WHILE LOOP SEGMENT
@@ -147,12 +157,24 @@ def buildAST(segment):
          
         whileNode.condition = parseCondition(segment[f+1: i], conditionNode)
         ### EXTRACT THE BODY
-        whileNode.parent = root
-        root.pushChild(whileNode)
+        bodyNode = ASTNode()
+        i = segment.find("{", i+1, len(segment))
+        segment = segment[i+1 : len(segment) - 1].strip("\n").strip("\t").strip()
+        for s in tokenizer(segment):
+            bodyNode.pushChild(s)
+        whileNode.body = bodyNode
+        
+        whileNode.parent = parent
+        parent.pushChild(whileNode)
+        
+    elif keyword == "echo":
+        ### ECHO HAS NO COUNTERPART IN NODE JS
+        pass
+    
 
 
 def generateAST(tokenList):
     for token in tokenList:
-        buildAST(token)
+        buildAST(token, root)
     return root
         

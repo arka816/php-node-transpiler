@@ -15,6 +15,7 @@ class WhileNode(ASTNode):
 class OperatorNode(ASTNode):
     def __init__(self):
         super().__init__()
+        self.boolean = None
         self.operator = None
         self.operandLeft = None
         self.operandRight = None
@@ -30,3 +31,4 @@ class ValueNode(ASTNode):
         super().__init__()
         self.value = None
         self.varType = None
+        

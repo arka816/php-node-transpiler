@@ -1,19 +1,18 @@
 ###LEXER PROGRAM FOR PHP-NODE JS TRANSPILER
 ### GENERATES TOKENS FOR PARSING
 ### AUTHOR : ARKA
-
-tokenList = []
 ### isTokenFlag determines if current character belongs to code or is it part of a string
 ### isExFlag determines if current character belongs to a code segment e.g. function or class
 ### or for loop or method or is it purely external token
-isTokenFlag = True
-isExFlag = True
-lastTokenIndex = 0
-stack = []
+
 
 def tokenizer(string):
+    tokenList = []
+    isTokenFlag = True
+    isExFlag = True
+    lastTokenIndex = 0
+    stack = []
     l = len(string)
-    global lastTokenIndex, isTokenFlag, isExFlag
     i=0
     while i < l:
         char=string[i]

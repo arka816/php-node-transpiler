@@ -6,7 +6,7 @@
 
 $x = 10;
 
-while((($x >= 2 or ($x == "#" and $x != "%"))and$x <= 5)) {
+while($x >= 2&&"4" <= "5" or ($x == "#" and $x != "%")) {
   echo "The number is: $x <br>";
   $x++;
 }

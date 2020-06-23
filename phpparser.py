@@ -1,95 +1,22 @@
 ###LEXER PROGRAM FOR PHP-NODE JS TRANSPILER
 ### AUTHOR : ARKA
 import sys
+from utility import *
+from classes import *
 
 keywords = ["do", "while", "for", "if", "elseif", "else", "try", "catch", "throw", "new", "echo", "function", "class"]
 comparisonOp = ["===", "!==", "==", "!=", ">=", "<=", ">", "<", "<>", "<=>"]
-logicalOp = ["and", "or", "&&", "||", "xor", "!"]
+logicalOp = ["and", "or", "&&", "||", "xor"]
 
-class ASTNode:
-    def __init__(self):
-        self.type = None
-        self.parent = None
-        self.childList = []
-    def pushChild(self, elem):
-        self.childList.append(elem)
-        
-class WhileNode(ASTNode):
-    def __init__(self):
-        super().__init__()
-        self.condition = None
-        self.body = None
-        
-class OperatorNode(ASTNode):
-    def __init__(self):
-        super().__init__()
-        self.operator = None
-        self.operandLeft = None
-        self.operandRight = None
-        
-class IdentifierNode(ASTNode):
-    def __init__(self):
-        super().__init__()
-        self.name = None
-        self.varType = None
-
-class ValueNode(ASTNode):
-    def __init__(self):
-        super().__init__()
-        self.value = None
-        self.varType = None
 
 root = ASTNode()
 root.type = "root"
-
-def removeRedundantParentheses(string):
-    ### REMOVES REDUNDANT PAIRS OF PARENTHESES FROM START AND END OF STRING
-    flag = True
-    while(flag):
-        flag = False
-        codeflag = True
-        stack = []
-        j = string.find("(")
-        if j >= 0:
-            for i in range(j + 1, len(string)):
-                char = string[i]
-                if char == "\"" and string[i-1] != "\\":
-                    codeflag = not codeflag
-                elif char == "(" and codeflag:
-                    stack.append("(")
-                elif char == ")" and codeflag:
-                    if len(stack) == 0:
-                        if i == len(string) - 1:
-                            string = string[0 : j] + string[j + 1: i] + string[i + 1 : len(string)]
-                            flag = True
-                            break
-                        else:
-                            flag = False
-                    else:
-                        stack.pop()
-    
-    return string
 
 
 def evaluate(segment):
     return segment
 
-def classifySegment(segment):
-    segment = segment.strip()
-    if segment[0] == "$":
-        return "variable"
-    else:
-        keyword = ""
-        for i in range(len(segment)):
-            char = segment[i]
-            if (char >= 'a' and char <= 'z') or (char >= 'A' and char <= 'Z'):
-                keyword += char
-            else:
-                break
-        if keyword.lower() in keywords:
-            return keyword
-        else:
-            print("error finding keyword in token")
+
 
 def parseCondition(statement, parentNode):
     ### CLEANSE STRING
@@ -100,7 +27,7 @@ def parseCondition(statement, parentNode):
     ### FIND THE FIRST EXTERNAL LOGICAL OPERATOR
     ### AND THEN STRIP THE OPERATOR AND OPERAND
     if statement[0] == "(":
-        ### STRIP THE LEFT OPERAND
+        ### EXTRACT THE LEFT OPERAND
         stack = []
         stack.append("(")
         flag = True
@@ -117,16 +44,16 @@ def parseCondition(statement, parentNode):
                 flag = not flag
         operandLeft = statement[0:i].strip()
         
-        ### STRIP THE OPERATOR
+        ### EXTRACT THE OPERATOR
         operator = ""
         for i in range(len(searchstring)):
             c=searchstring[i]
-            if c == " " or c == "$" or c == "(":
+            if c == " " or c == "$" or c == "(" or (c >= "0" and c <= "9") or c == "\"":
                 break
             else:
                 operator += c
                 
-        ### STRIP THE RIGHT OPERAND
+        ### EXTRACT THE RIGHT OPERAND
         operandRight = searchstring[i:len(searchstring)].strip()
         
         if operator not in logicalOp:
@@ -134,11 +61,47 @@ def parseCondition(statement, parentNode):
             sys.exit()
             
         parentNode.operator = operator
-        parentNode.operandLeft = operandLeft
-        parentNode.operandRight = operandRight
+        leftOperandNode = OperatorNode()
+        rightOperandNode = OperatorNode()
+        parentNode.operandLeft = parseCondition(operandLeft, leftOperandNode)
+        parentNode.operandRight = parseCondition(operandRight, rightOperandNode)
         
-
-    print(statement)
+    else:
+        ### THIS CAN BE EITHER A SINGLE OR COMPOUND LOGICAL STATEMENT
+        ### FIND THE FIRST LOGICAL OPERATOR...FUCK BRACKETS
+        ### IF NO LOGICAL OPERATOR IS FOUND THEN SINGLE STATEMENT
+        opDict = dict()
+        for lo in logicalOp:
+            opDict[lo] = findLogicalOperator(lo, statement)
+            
+        minIndex = min(opDict.values())
+        if minIndex == len(statement):
+            ### SINGLE LOGIC STATEMENT
+            for comp in comparisonOp:
+                i = findComparisonOperator(comp, statement)
+                if i >= 0:
+                    parentNode.operator = comp
+                    parentNode.operandLeft = statement[0 : i].strip()
+                    parentNode.operandRight = statement[i + len(comp) : len(statement)].strip()
+                    print(comp, parentNode.operandLeft, parentNode.operandRight)
+                    break
+        else:
+            operator = [key for key in opDict if opDict[key] == minIndex]   
+            operator = operator[0].strip()
+            if operator not in logicalOp:
+                print("invalid operator")
+                sys.exit()
+            
+            ### EXTRACT THE LEFT OPERAND
+            operandLeft = statement[0 : minIndex].strip()
+            ### EXTRACT THE RIGHT OPERAND
+            operandRight = statement[minIndex + len(operator) : len(statement)].strip()
+            
+            parentNode.operator = operator
+            leftOperandNode = OperatorNode()
+            rightOperandNode = OperatorNode()
+            parentNode.operandLeft = parseCondition(operandLeft, leftOperandNode)
+            parentNode.operandRight = parseCondition(operandRight, rightOperandNode)
     return parentNode
 
 
@@ -147,7 +110,7 @@ def parseCondition(statement, parentNode):
 def buildAST(segment):
     l=len(segment)
     keyword = classifySegment(segment)
-    if keyword == "variable":
+    if keyword == "identifier":
         ### THE SEGMENT IS AN ASSIGNMENT STATEMENT
         operatorNode = OperatorNode()
         identifierNode = IdentifierNode()
